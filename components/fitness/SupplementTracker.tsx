@@ -3,8 +3,22 @@
 import { useState } from "react";
 import { Panel, PanelTitle } from "@/components/ui/Panel";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { logSupplement } from "@/lib/actions/fitness";
+import { logSupplement, deleteSupplementLog } from "@/lib/actions/fitness";
 import type { SupplementLog } from "@/lib/types";
+
+const TYPE_ICON: Record<SupplementLog["type"], string> = {
+  shake: "🥤",
+  riegel: "🍫",
+  custom: "🍽️",
+  creatine: "💊",
+};
+
+const TYPE_LABEL: Record<SupplementLog["type"], string> = {
+  shake: "Shake",
+  riegel: "Riegel",
+  custom: "Mahlzeit",
+  creatine: "Kreatin",
+};
 
 export function SupplementTracker({
   userId,
@@ -82,6 +96,32 @@ export function SupplementTracker({
           +
         </button>
       </form>
+
+      {logs.filter((l) => l.type !== "creatine").length > 0 && (
+        <ul className="flex flex-col gap-1.5 mb-4">
+          {logs
+            .filter((l) => l.type !== "creatine")
+            .map((l) => (
+              <li
+                key={l.id}
+                className="flex items-center justify-between gap-2 rounded-md border border-border bg-panel-raised px-3 py-2"
+              >
+                <span className="text-sm text-ink flex items-center gap-2">
+                  <span aria-hidden>{TYPE_ICON[l.type]}</span>
+                  {TYPE_LABEL[l.type]} · {l.grams ?? 0}g
+                </span>
+                <button
+                  type="button"
+                  onClick={() => deleteSupplementLog(l.id)}
+                  aria-label={`${TYPE_LABEL[l.type]}-Eintrag entfernen`}
+                  className="h-9 w-9 shrink-0 rounded-md border border-border text-ink-dim text-lg flex items-center justify-center active:border-status-missed active:text-status-missed"
+                >
+                  −
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
 
       <button
         type="button"

@@ -255,6 +255,41 @@ as $$
   end;
 $$;
 
+create or replace function public.prev_split_day(p_split text)
+returns text
+language sql
+immutable
+as $$
+  select case p_split
+    when 'push' then 'legs'
+    when 'pull' then 'push'
+    when 'legs' then 'pull'
+    else 'legs'
+  end;
+$$;
+
+-- Setzt den aktuell angezeigten (noch nicht abgeschlossenen) Split-Tag manuell auf p_target.
+-- Merkt sich den Stand wie ein "noch nicht heute trainiert"-Zustand, d.h. last_completed_date
+-- wird geleert — das nächste Abhaken von "Training absolviert" rotiert von p_target aus weiter.
+create or replace function public.set_split_day(p_target text)
+returns void
+language plpgsql
+security invoker
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if p_target not in ('push', 'pull', 'legs') then
+    raise exception 'invalid split %', p_target;
+  end if;
+
+  update public.split_rotation_state
+    set last_completed_split = public.prev_split_day(p_target),
+        last_completed_date = null
+    where user_id = v_uid;
+end;
+$$;
+
 -- Legt für neu registrierte User Standarddaten an (Habits, Settings, Stundenplan-Gerüst).
 create or replace function public.handle_new_user()
 returns trigger
@@ -882,6 +917,8 @@ grant execute on function public.reopen_todo(uuid) to authenticated;
 grant execute on function public.next_split_day(text) to authenticated;
 grant execute on function public.unlock_day(date, text) to authenticated;
 grant execute on function public.set_rest_day(date, boolean) to authenticated;
+grant execute on function public.set_split_day(text) to authenticated;
+grant execute on function public.prev_split_day(text) to authenticated;
 
 -- ============================================================================
 -- REALTIME

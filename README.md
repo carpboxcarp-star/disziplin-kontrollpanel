@@ -21,8 +21,9 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
      [`supabase/migrations/`](./supabase/migrations/) der Reihe nach im SQL-Editor ausführen
      (`0001_...` automatischer Gamble-Ersparnis-Abzug + automatisches Abhaken des
      Protein-Habits, `0002_...` PIN-geschützte Tagesentsperrung, `0003_...` Umbenennung
-     "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion — in einem frischen `schema.sql`-Lauf
-     ist das alles bereits enthalten).
+     "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion, `0004_...` manuelles Vor-/
+     Zurückschalten des Trainingstags — in einem frischen `schema.sql`-Lauf ist das alles
+     bereits enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
    `/login`-Seite als Umschalter zur Verfügung). Unter **Authentication → Email Templates**

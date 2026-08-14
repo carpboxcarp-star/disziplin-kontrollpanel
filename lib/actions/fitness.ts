@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import type { ExerciseLog, SupplementType } from "@/lib/types";
+import type { ExerciseLog, SplitDay, SupplementType } from "@/lib/types";
 
 export async function ensureExerciseLog(
   userId: string,
@@ -65,4 +65,9 @@ export async function deleteSupplementLog(id: string) {
 export async function setRestDay(date: string, isRestDay: boolean) {
   const supabase = createClient();
   return supabase.rpc("set_rest_day", { p_date: date, p_is_rest_day: isRestDay });
+}
+
+export async function setSplitDay(target: SplitDay) {
+  const supabase = createClient();
+  return supabase.rpc("set_split_day", { p_target: target });
 }

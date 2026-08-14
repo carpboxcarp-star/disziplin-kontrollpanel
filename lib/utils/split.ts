@@ -8,6 +8,11 @@ export function nextSplitDay(split: SplitDay | null): SplitDay {
   return ORDER[(idx + 1) % ORDER.length];
 }
 
+export function prevSplitDay(split: SplitDay): SplitDay {
+  const idx = ORDER.indexOf(split);
+  return ORDER[(idx - 1 + ORDER.length) % ORDER.length];
+}
+
 /**
  * Aktueller Split-Tag: rotiert NICHT nach Kalendertag, sondern nach dem zuletzt
  * abgeschlossenen Trainingstag (Push→Pull→Legs→...), damit Ruhetage die Rotation
