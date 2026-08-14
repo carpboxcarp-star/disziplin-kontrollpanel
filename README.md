@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Disziplin-Kontrollpanel
 
-## Getting Started
+Next.js (App Router) + Supabase Web-App für tägliches Habit-, Fitness-, Business- und
+Finanz-Tracking. Läuft dauerhaft im Chrome-Kiosk-Modus auf einem Wandgerät und synchron
+per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und sehen
+Änderungen in Echtzeit.
 
-First, run the development server:
+## 1. Supabase-Projekt einrichten
+
+1. Auf [supabase.com](https://supabase.com) einloggen/registrieren und **New Project**
+   anlegen (Region z.B. Frankfurt für niedrige Latenz aus Deutschland).
+2. Warten, bis das Projekt bereitsteht (ca. 2 Minuten).
+3. **Database → Extensions**: `pg_cron` aktivieren (suchen, Toggle einschalten). Das wird
+   für den automatischen Mitternachts-Abschluss der Tage benötigt.
+4. **SQL Editor → New query**: den kompletten Inhalt von [`supabase/schema.sql`](./supabase/schema.sql)
+   einfügen und ausführen (**Run**). Das legt alle Tabellen, Policies, Funktionen, den
+   `pg_cron`-Job und den festen Push/Pull/Legs-Übungsplan an.
+   - Falls der `pg_cron`-Teil am Ende einen Fehler wirft ("extension not found"), Schritt 3
+     nochmal prüfen und nur den `select cron.schedule(...)`-Block am Ende erneut ausführen.
+5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist.
+   Unter **Authentication → Email Templates** kann der Magic-Link-Text angepasst werden.
+6. **Authentication → URL Configuration**:
+   - *Site URL*: die spätere Vercel-URL eintragen (z.B. `https://disziplin-kontrollpanel.vercel.app`)
+   - *Redirect URLs*: zusätzlich `http://localhost:3000/auth/callback` für lokale Entwicklung
+     sowie `https://<deine-vercel-url>/auth/callback` eintragen.
+7. **Project Settings → API**: `Project URL` und `anon public` Key kopieren — werden im
+   nächsten Schritt gebraucht.
+
+## 2. Lokale Einrichtung
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+`.env.local` ausfüllen:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
+
+Dann lokal starten:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Unter `http://localhost:3000` öffnen, mit der eigenen E-Mail-Adresse per Magic Link einloggen
+(Link kommt per Mail — beim ersten Login werden automatisch Standard-Habits, Punktwerte und
+ein leerer Stundenplan für den Account angelegt).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 3. Deployment auf Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Repository zu GitHub pushen (oder direkt via `vercel` CLI deployen).
+2. Auf [vercel.com](https://vercel.com) **New Project** → Repository auswählen.
+3. Environment Variables setzen (gleiche Werte wie in `.env.local`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Deployen. Danach in Supabase unter **Authentication → URL Configuration** die
+   *Site URL* und *Redirect URLs* auf die finale Vercel-Domain aktualisieren (siehe Schritt 1.6).
 
-## Learn More
+Sowohl das Wandgerät (Kiosk) als auch das Handy rufen anschließend dieselbe Vercel-URL auf
+und loggen sich mit demselben Account ein — alle Daten synchronisieren sich in Echtzeit über
+Supabase Realtime.
 
-To learn more about Next.js, take a look at the following resources:
+## 4. Windows-Kiosk-Setup (Wandgerät)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Chrome im Kiosk-Modus starten
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Verknüpfung anlegen, die Chrome im Vollbild-Kiosk-Modus direkt mit der App-URL startet:
 
-## Deploy on Vercel
+1. Rechtsklick auf dem Desktop → **Neu → Verknüpfung**
+2. Als Pfad eingeben (Pfad zu `chrome.exe` ggf. anpassen):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```
+   "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk "https://<deine-vercel-url>" --kiosk-printing --noerrdialogs --disable-session-crashed-bubble --disable-infobars
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Verknüpfung benennen, z.B. `Disziplin-Kontrollpanel`.
+4. Mit dem Touchscreen einmal einloggen (Magic Link auf dem Handy öffnen, das leitet dann im
+   Browser auf dem Handy weiter — der Login-Status wird als Cookie/Session auf dem Kiosk-Gerät
+   selbst benötigt, d.h. die Magic-Link-Mail auf dem **Kiosk-Gerät** öffnen, z.B. indem man sich
+   dort kurz aus dem Kiosk-Modus per `Alt+F4` herausbewegt oder die Mail über ein zweites Gerät
+   im selben Chrome-Profil synchronisiert). Danach bleibt die Session dauerhaft aktiv.
+   Kiosk-Modus beenden: `Alt+F4`.
+
+### Autostart einrichten
+
+1. `Win + R` → `shell:startup` → Enter (öffnet den Autostart-Ordner des aktuellen Nutzers).
+2. Die eben erstellte Verknüpfung per Kopieren/Einfügen dort hineinlegen.
+3. Neustart testen — Chrome sollte automatisch im Kiosk-Modus mit der App starten.
+
+### Energieoptionen: Bildschirm nie ausschalten
+
+1. **Einstellungen → System → Netzbetrieb & Akku** (oder `powercfg.cpl` über `Win + R`).
+2. **Bildschirm ausschalten** und **Energiesparmodus** jeweils auf **Nie** setzen
+   (sowohl im Akku- als auch im Netzbetrieb, falls vorhanden).
+3. Optional zusätzlich in der Windows-Anzeigesperre unter **Einstellungen → Konten →
+   Anmeldeoptionen** die Bildschirmsperre deaktivieren.
+
+Die App setzt zusätzlich beim Laden `navigator.wakeLock` (falls vom Browser unterstützt) als
+zweite Absicherung gegen das Einschlafen des Bildschirms während des Kiosk-Betriebs.
+
+## Technischer Überblick
+
+- **Frontend**: Next.js 16 (App Router, TypeScript, Tailwind CSS v4), Google Fonts
+  IBM Plex Mono + Barlow Condensed.
+- **Backend**: Supabase (Postgres, Auth mit Magic Link, Realtime).
+- **Sync**: `lib/context/DashboardContext.tsx` lädt alle Tabellen des eingeloggten Users und
+  hält sie per Supabase Realtime (`postgres_changes`) synchron — jede Änderung auf einem
+  Gerät erscheint sofort auf dem anderen.
+- **Mitternachts-Reset**: Ein `pg_cron`-Job (`supabase/schema.sql`, alle 15 Minuten) schließt
+  automatisch abgelaufene, nicht manuell abgeschlossene Tage ab (Streak-Auswertung inklusive)
+  — Zeitzone `Europe/Berlin`, DST-sicher. Der "Tag abschließen"-Button ruft dieselbe Logik
+  manuell per RPC (`close_day`) auf.
+- **Push/Pull/Legs-Rotation**: rotiert nicht nach Kalendertag, sondern nach dem zuletzt
+  abgeschlossenen Trainingstag (`split_rotation_state`), damit Ruhetage den Rhythmus nicht
+  verschieben. Wird automatisch vorangetrieben, sobald "Training absolviert" auf dem
+  Heute-Tab abgehakt wird.
+
+## Datenbankschema
+
+Das komplette SQL-Schema (Tabellen, Row-Level-Security-Policies, Funktionen, Trigger,
+`pg_cron`-Job, Seed-Daten für den Trainingsplan) liegt in [`supabase/schema.sql`](./supabase/schema.sql)
+und ist einmalig im Supabase SQL-Editor auszuführen (siehe Schritt 1.4).
