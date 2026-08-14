@@ -15,16 +15,23 @@ interface HabitListProps {
 
 export function HabitList({ definitions, entries, date, locked }: HabitListProps) {
   const [pending, setPending] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
 
   async function update(key: string, status: "done" | "missed" | "skipped", note?: string) {
     setPending(key);
-    await setHabitStatus(date, key, status, note);
+    setErrorKey(null);
+    const { error } = await setHabitStatus(date, key, status, note);
+    if (error) {
+      console.error(`set_habit_status(${key}, ${status}) fehlgeschlagen:`, error);
+      setErrorKey(key);
+    }
     setPending(null);
   }
 
   return (
     <div className="flex flex-col gap-3">
       {definitions.map((def) => {
+        const autoManaged = def.key === "protein";
         const entry = entries.find((e) => e.habit_key === def.key);
         const status = entry?.status ?? "missed";
         const skipped = status === "skipped";
@@ -33,12 +40,16 @@ export function HabitList({ definitions, entries, date, locked }: HabitListProps
           <div key={def.key} className="flex flex-col gap-1.5">
             <Toggle
               checked={status === "done"}
-              disabled={locked || skipped || pending === def.key}
+              disabled={locked || skipped || autoManaged || pending === def.key}
               label={def.label}
-              sublabel={`${def.is_bonus ? "Bonus " : ""}+${def.points} Punkte`}
+              sublabel={
+                autoManaged
+                  ? `automatisch · +${def.points} Punkte`
+                  : `${def.is_bonus ? "Bonus " : ""}+${def.points} Punkte`
+              }
               onChange={(checked) => update(def.key, checked ? "done" : "missed")}
             />
-            {!locked && (
+            {!locked && !autoManaged && (
               <div className="pl-1">
                 <SkipLink
                   skipped={skipped}
@@ -47,6 +58,11 @@ export function HabitList({ definitions, entries, date, locked }: HabitListProps
                   onUnskip={() => update(def.key, "missed")}
                 />
               </div>
+            )}
+            {errorKey === def.key && (
+              <p className="text-xs text-status-missed pl-1">
+                Speichern fehlgeschlagen — bitte erneut versuchen.
+              </p>
             )}
           </div>
         );

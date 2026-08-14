@@ -61,3 +61,35 @@ textarea {
   font-family: var(--font-barlow-condensed), sans-serif;
   font-weight: 700;
 }
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.85;
+  }
+}
+
+.animate-flame {
+  animation: flame-flicker 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes streak-grow-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-streak-in {
+  animation: streak-grow-in 0.4s ease-out;
+}

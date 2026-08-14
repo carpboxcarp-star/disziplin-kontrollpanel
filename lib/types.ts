@@ -61,6 +61,8 @@ export interface Settings {
   wake_buffer_minutes: number;
   target_sleep_hours: number;
   todo_bonus_points: number;
+  gamble_savings_amount: number;
+  last_auto_saving_date: string | null;
   updated_at: string;
 }
 

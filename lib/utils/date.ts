@@ -19,6 +19,13 @@ export function weekdayOf(dateStr: string): number {
   return new Date(y, m - 1, d).getDay();
 }
 
+/** Montag der Woche, in der `dateStr` liegt (Wochenstart = Montag). */
+export function mondayOfWeek(dateStr: string): string {
+  const wd = weekdayOf(dateStr);
+  const offset = wd === 0 ? -6 : 1 - wd;
+  return addDaysStr(dateStr, offset);
+}
+
 export function formatDateLong(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y, m - 1, d);

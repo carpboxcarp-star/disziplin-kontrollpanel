@@ -3,13 +3,23 @@
 import { useState } from "react";
 import { Panel, PanelTitle } from "@/components/ui/Panel";
 import { addSaving, deleteSaving } from "@/lib/actions/finance";
+import { updateSettings } from "@/lib/actions/settings";
 import { todayStr } from "@/lib/utils/date";
-import type { SavingsEntry } from "@/lib/types";
+import type { SavingsEntry, Settings } from "@/lib/types";
 
-export function SavingsTracker({ userId, entries }: { userId: string; entries: SavingsEntry[] }) {
+export function SavingsTracker({
+  userId,
+  entries,
+  settings,
+}: {
+  userId: string;
+  entries: SavingsEntry[];
+  settings: Settings | null;
+}) {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState("");
+  const [autoAmount, setAutoAmount] = useState(settings?.gamble_savings_amount ?? 45);
 
   const total = entries.reduce((sum, e) => sum + Number(e.amount), 0);
   const sorted = [...entries].sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
@@ -18,6 +28,23 @@ export function SavingsTracker({ userId, entries }: { userId: string; entries: S
     <Panel>
       <PanelTitle>Erspartes durch kein Gamblen</PanelTitle>
       <p className="font-display text-5xl text-amber mb-4">{total.toFixed(2)} €</p>
+
+      <div className="flex items-center justify-between gap-3 mb-4 rounded-md border border-border bg-panel-raised px-4 py-3">
+        <div>
+          <p className="text-sm text-ink">Automatischer Bonus alle 2 Tage</p>
+          <p className="text-xs text-ink-dim">nur wenn Kontostand &gt; Betrag</p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <input
+            inputMode="decimal"
+            value={autoAmount}
+            onChange={(e) => setAutoAmount(Number(e.target.value))}
+            onBlur={() => updateSettings(userId, { gamble_savings_amount: autoAmount })}
+            className="h-11 w-20 rounded border border-border bg-panel px-2 text-sm text-ink text-center outline-none focus:border-amber"
+          />
+          <span className="text-sm text-ink-dim">€</span>
+        </div>
+      </div>
 
       <form
         onSubmit={(e) => {

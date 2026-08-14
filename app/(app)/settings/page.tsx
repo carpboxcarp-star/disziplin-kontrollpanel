@@ -4,6 +4,7 @@ import { useDashboard } from "@/lib/context/DashboardContext";
 import { SchedulePanel } from "@/components/settings/SchedulePanel";
 import { PointsEditor } from "@/components/settings/PointsEditor";
 import { LogoutButton } from "@/components/layout/LogoutButton";
+import { BackButton } from "@/components/ui/BackButton";
 
 export default function SettingsPage() {
   const { ready, userId, weekdaySchedule, settings, habitDefinitions } = useDashboard();
@@ -14,6 +15,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BackButton />
       <SchedulePanel userId={userId} schedule={weekdaySchedule} settings={settings} />
       <PointsEditor userId={userId} definitions={habitDefinitions} settings={settings} />
       <div className="flex justify-center pt-2">

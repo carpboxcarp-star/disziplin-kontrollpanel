@@ -17,6 +17,11 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
    `pg_cron`-Job und den festen Push/Pull/Legs-Übungsplan an.
    - Falls der `pg_cron`-Teil am Ende einen Fehler wirft ("extension not found"), Schritt 3
      nochmal prüfen und nur den `select cron.schedule(...)`-Block am Ende erneut ausführen.
+   - **Bereits ein Projekt eingerichtet?** Zusätzlich einmalig
+     [`supabase/migrations/0001_gamble_savings_and_protein_auto.sql`](./supabase/migrations/0001_gamble_savings_and_protein_auto.sql)
+     im SQL-Editor ausführen — legt die neuen Spalten/Funktionen für den automatischen
+     Gamble-Ersparnis-Abzug und das automatische Abhaken des Protein-Habits an
+     (in einem frischen `schema.sql`-Lauf ist das bereits enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
    `/login`-Seite als Umschalter zur Verfügung). Unter **Authentication → Email Templates**

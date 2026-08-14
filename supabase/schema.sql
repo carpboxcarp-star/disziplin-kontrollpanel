@@ -75,6 +75,8 @@ create table public.settings (
   wake_buffer_minutes integer not null default 45,
   target_sleep_hours numeric(3, 1) not null default 7.5,
   todo_bonus_points integer not null default 15,
+  gamble_savings_amount numeric(10, 2) not null default 45,
+  last_auto_saving_date date,
   updated_at timestamptz not null default now()
 );
 
@@ -366,6 +368,10 @@ begin
     raise exception 'invalid status %', p_status;
   end if;
 
+  if p_habit_key = 'protein' then
+    raise exception 'protein habit is managed automatically, see sync_protein_habit()';
+  end if;
+
   v_log := public.ensure_daily_log(p_date);
 
   if v_log.locked then
@@ -602,6 +608,175 @@ create trigger exercise_sets_set_user_id
   before insert on public.exercise_sets
   for each row execute function public.set_exercise_set_user_id();
 
+-- Berechnet den "protein"-Habit-Status neu (done, sobald die Tagessumme der Supplement-Logs
+-- das Protein-Ziel erreicht) und respektiert dabei einen manuell gesetzten Skip sowie
+-- gesperrte (abgeschlossene) Tage. Wird per Trigger aufgerufen, nicht direkt von Clients.
+create or replace function public.sync_protein_habit(p_user_id uuid, p_date date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_log public.daily_logs;
+  v_goal integer;
+  v_total integer;
+  v_def public.habit_definitions;
+  v_entry public.habit_entries;
+  v_new_status text;
+  v_new_points integer;
+begin
+  select protein_goal_g into v_goal from public.settings where user_id = p_user_id;
+  if v_goal is null then
+    return;
+  end if;
+
+  select * into v_def from public.habit_definitions
+    where user_id = p_user_id and key = 'protein' and active = true;
+  if not found then
+    return;
+  end if;
+
+  insert into public.daily_logs (user_id, log_date)
+  values (p_user_id, p_date)
+  on conflict (user_id, log_date) do nothing;
+
+  select * into v_log from public.daily_logs where user_id = p_user_id and log_date = p_date;
+  if v_log.locked then
+    return;
+  end if;
+
+  insert into public.habit_entries (user_id, daily_log_id, habit_key, status, points_awarded)
+  values (p_user_id, v_log.id, 'protein', 'missed', 0)
+  on conflict (daily_log_id, habit_key) do nothing;
+
+  select * into v_entry from public.habit_entries
+    where daily_log_id = v_log.id and habit_key = 'protein';
+
+  if v_entry.status = 'skipped' then
+    return;
+  end if;
+
+  select coalesce(sum(grams), 0) into v_total
+  from public.supplement_logs
+  where user_id = p_user_id and log_date = p_date and type <> 'creatine';
+
+  if v_total >= v_goal then
+    v_new_status := 'done';
+    v_new_points := v_def.points;
+  else
+    v_new_status := 'missed';
+    v_new_points := 0;
+  end if;
+
+  if v_new_status is distinct from v_entry.status or v_new_points is distinct from v_entry.points_awarded then
+    update public.habit_entries
+      set status = v_new_status, points_awarded = v_new_points, updated_at = now()
+      where id = v_entry.id;
+  end if;
+end;
+$$;
+
+create or replace function public.trg_sync_protein_on_supplement()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'DELETE' then
+    perform public.sync_protein_habit(old.user_id, old.log_date);
+    return old;
+  else
+    perform public.sync_protein_habit(new.user_id, new.log_date);
+    return new;
+  end if;
+end;
+$$;
+
+drop trigger if exists supplement_logs_sync_protein on public.supplement_logs;
+create trigger supplement_logs_sync_protein
+  after insert or update or delete on public.supplement_logs
+  for each row execute function public.trg_sync_protein_on_supplement();
+
+-- Bei Änderung des Protein-Ziels (Einstellungen) den heutigen Status sofort neu berechnen.
+create or replace function public.trg_sync_protein_on_goal_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.protein_goal_g is distinct from old.protein_goal_g then
+    perform public.sync_protein_habit(new.user_id, (now() at time zone 'Europe/Berlin')::date);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists settings_sync_protein_on_goal_change on public.settings;
+create trigger settings_sync_protein_on_goal_change
+  after update on public.settings
+  for each row execute function public.trg_sync_protein_on_goal_change();
+
+-- Bei Änderung des Punktwerts des "protein"-Habits den heutigen Status neu berechnen.
+create or replace function public.trg_sync_protein_on_points_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.key = 'protein' and new.points is distinct from old.points then
+    perform public.sync_protein_habit(new.user_id, (now() at time zone 'Europe/Berlin')::date);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists habit_definitions_sync_protein on public.habit_definitions;
+create trigger habit_definitions_sync_protein
+  after update on public.habit_definitions
+  for each row execute function public.trg_sync_protein_on_points_change();
+
+-- Trägt alle 2 Tage automatisch den konfigurierten Betrag als Ersparnis ein — aber nur,
+-- wenn der zuletzt eingetragene Kontostand größer als der Betrag ist. Wird per pg_cron
+-- aufgerufen (siehe unten), Zeitzone Europe/Berlin, DST-sicher.
+create or replace function public.auto_apply_gamble_savings()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_today date := (now() at time zone 'Europe/Berlin')::date;
+  v_latest_balance numeric;
+begin
+  for r in
+    select s.user_id, s.gamble_savings_amount, s.last_auto_saving_date
+    from public.settings s
+    where s.gamble_savings_amount > 0
+      and (s.last_auto_saving_date is null or v_today - s.last_auto_saving_date >= 2)
+  loop
+    select amount into v_latest_balance
+    from public.balance_entries
+    where user_id = r.user_id
+    order by entry_date desc, created_at desc
+    limit 1;
+
+    if v_latest_balance is not null and v_latest_balance > r.gamble_savings_amount then
+      insert into public.savings_entries (user_id, amount, entry_date, note)
+      values (r.user_id, r.gamble_savings_amount, v_today, 'Automatisch (kein Gamblen)');
+
+      update public.settings
+        set last_auto_saving_date = v_today
+        where user_id = r.user_id;
+    end if;
+  end loop;
+end;
+$$;
+
 -- ============================================================================
 -- GRANTS
 -- ============================================================================
@@ -611,6 +786,11 @@ revoke execute on function public.auto_close_stale_days() from public, anon, aut
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.sync_total_points() from public, anon, authenticated;
 revoke execute on function public.set_exercise_set_user_id() from public, anon, authenticated;
+revoke execute on function public.sync_protein_habit(uuid, date) from public, anon, authenticated;
+revoke execute on function public.trg_sync_protein_on_supplement() from public, anon, authenticated;
+revoke execute on function public.trg_sync_protein_on_goal_change() from public, anon, authenticated;
+revoke execute on function public.trg_sync_protein_on_points_change() from public, anon, authenticated;
+revoke execute on function public.auto_apply_gamble_savings() from public, anon, authenticated;
 
 grant execute on function public.ensure_daily_log(date) to authenticated;
 grant execute on function public.set_habit_status(date, text, text, text) to authenticated;
@@ -647,6 +827,12 @@ select cron.schedule(
   'auto-close-stale-days',
   '*/15 * * * *',
   $$select public.auto_close_stale_days();$$
+);
+
+select cron.schedule(
+  'auto-apply-gamble-savings',
+  '*/15 * * * *',
+  $$select public.auto_apply_gamble_savings();$$
 );
 
 -- ============================================================================
