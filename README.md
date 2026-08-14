@@ -19,9 +19,10 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
      nochmal prüfen und nur den `select cron.schedule(...)`-Block am Ende erneut ausführen.
    - **Bereits ein Projekt eingerichtet?** Zusätzlich einmalig alle Dateien in
      [`supabase/migrations/`](./supabase/migrations/) der Reihe nach im SQL-Editor ausführen
-     (`0001_...` legt den automatischen Gamble-Ersparnis-Abzug und das automatische Abhaken
-     des Protein-Habits an, `0002_...` die PIN-geschützte Tagesentsperrung — in einem
-     frischen `schema.sql`-Lauf ist beides bereits enthalten).
+     (`0001_...` automatischer Gamble-Ersparnis-Abzug + automatisches Abhaken des
+     Protein-Habits, `0002_...` PIN-geschützte Tagesentsperrung, `0003_...` Umbenennung
+     "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion — in einem frischen `schema.sql`-Lauf
+     ist das alles bereits enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
    `/login`-Seite als Umschalter zur Verfügung). Unter **Authentication → Email Templates**

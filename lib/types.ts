@@ -28,6 +28,7 @@ export interface DailyLog {
   points_after: number | null;
   streak_before: number | null;
   points_before: number | null;
+  is_rest_day: boolean;
   created_at: string;
 }
 

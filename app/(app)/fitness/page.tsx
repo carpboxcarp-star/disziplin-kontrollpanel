@@ -5,6 +5,7 @@ import { useDashboard } from "@/lib/context/DashboardContext";
 import { todayStr } from "@/lib/utils/date";
 import { currentSplitDay } from "@/lib/utils/split";
 import { SplitDayCard } from "@/components/fitness/SplitDayCard";
+import { RestDayToggle } from "@/components/fitness/RestDayToggle";
 import { ExerciseCard } from "@/components/fitness/ExerciseCard";
 import { ExerciseHistoryPanel } from "@/components/fitness/ExerciseHistoryPanel";
 import { SupplementTracker } from "@/components/fitness/SupplementTracker";
@@ -21,6 +22,7 @@ export default function FitnessPage() {
     splitRotation,
     supplementLogs,
     settings,
+    dailyLogs,
   } = useDashboard();
   const [historyFor, setHistoryFor] = useState<ExerciseDefinition | null>(null);
 
@@ -29,6 +31,7 @@ export default function FitnessPage() {
   }
 
   const date = todayStr();
+  const dailyLog = dailyLogs.find((l) => l.log_date === date) ?? null;
   const splitDay = currentSplitDay(splitRotation ?? undefined, date);
   const exercises = exerciseDefinitions
     .filter((e) => e.split_day === splitDay)
@@ -39,6 +42,11 @@ export default function FitnessPage() {
   return (
     <div className="flex flex-col gap-5">
       <SplitDayCard splitDay={splitDay} />
+      <RestDayToggle
+        date={date}
+        isRestDay={dailyLog?.is_rest_day ?? false}
+        locked={dailyLog?.locked ?? false}
+      />
 
       <div className="flex flex-col gap-3">
         <PanelTitle>Übungen</PanelTitle>

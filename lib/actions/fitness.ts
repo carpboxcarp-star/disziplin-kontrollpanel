@@ -61,3 +61,8 @@ export async function deleteSupplementLog(id: string) {
   const supabase = createClient();
   return supabase.from("supplement_logs").delete().eq("id", id);
 }
+
+export async function setRestDay(date: string, isRestDay: boolean) {
+  const supabase = createClient();
+  return supabase.rpc("set_rest_day", { p_date: date, p_is_rest_day: isRestDay });
+}

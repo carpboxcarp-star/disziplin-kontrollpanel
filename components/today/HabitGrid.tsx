@@ -39,7 +39,24 @@ export function HabitGrid({ definitions, entries, date, locked }: HabitGridProps
         const status = entry?.status ?? "missed";
         const done = status === "done";
         const skipped = status === "skipped";
+        const isRestDay =
+          def.key === "training" && skipped && entry?.skip_note === "Rest Day";
         const disabled = locked || skipped || autoManaged || pending === def.key;
+
+        if (isRestDay) {
+          return (
+            <div
+              key={def.key}
+              className="relative rounded-lg border border-border bg-panel-raised p-4 min-h-[112px] flex flex-col items-start justify-center gap-1"
+            >
+              <span className="text-2xl mb-1" aria-hidden>
+                🛌
+              </span>
+              <span className="text-sm font-medium text-ink-dim">Rest Day</span>
+              <span className="text-xs text-ink-dim">neutral · keine Streak-Unterbrechung</span>
+            </div>
+          );
+        }
 
         return (
           <div

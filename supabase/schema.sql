@@ -38,6 +38,7 @@ create table public.daily_logs (
   points_after integer,
   streak_before integer,
   points_before integer,
+  is_rest_day boolean not null default false,
   created_at timestamptz not null default now(),
   unique (user_id, log_date)
 );
@@ -270,7 +271,7 @@ begin
     (new.id, 'training', 'Training absolviert', 20, true, false, 1),
     (new.id, 'protein', 'Proteinziel erreicht', 15, true, false, 2),
     (new.id, 'sleep_early', 'Früh schlafen gegangen', 15, true, false, 3),
-    (new.id, 'no_gambling', 'Kein Gamblen', 20, true, false, 4),
+    (new.id, 'no_gambling', 'Daily Check', 20, true, false, 4),
     (new.id, 'cold_shower', 'Kalt geduscht', 10, false, true, 5),
     (new.id, 'business_outreach', 'Akquise-Nachricht verschickt', 10, false, false, 6);
 
@@ -515,6 +516,43 @@ begin
         streak_before = null,
         points_before = null
     where id = v_log.id;
+end;
+$$;
+
+-- Markiert/entfernt einen Rest Day für ein Datum. Aktiviert: setzt das "training"-Habit auf
+-- 'skipped' (neutral, keine Punkte, keine Streak-Unterbrechung) mit Notiz "Rest Day" — außer
+-- es wurde für den Tag schon "done" gesetzt, das bleibt unangetastet. Deaktiviert: macht die
+-- Rest-Day-Markierung nur rückgängig, wenn sie noch unverändert (skip_note = 'Rest Day') ist,
+-- damit ein zwischenzeitlich manuell gesetzter Skip nicht überschrieben wird.
+create or replace function public.set_rest_day(p_date date, p_is_rest_day boolean)
+returns void
+language plpgsql
+security invoker
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_log public.daily_logs;
+begin
+  v_log := public.ensure_daily_log(p_date);
+
+  if v_log.locked then
+    raise exception 'day is locked';
+  end if;
+
+  update public.daily_logs
+    set is_rest_day = p_is_rest_day
+    where id = v_log.id;
+
+  if p_is_rest_day then
+    update public.habit_entries
+      set status = 'skipped', skip_note = 'Rest Day', points_awarded = 0, updated_at = now()
+      where daily_log_id = v_log.id and habit_key = 'training' and status <> 'done';
+  else
+    update public.habit_entries
+      set status = 'missed', skip_note = null, points_awarded = 0, updated_at = now()
+      where daily_log_id = v_log.id and habit_key = 'training'
+        and status = 'skipped' and skip_note = 'Rest Day';
+  end if;
 end;
 $$;
 
@@ -843,6 +881,7 @@ grant execute on function public.complete_todo(uuid) to authenticated;
 grant execute on function public.reopen_todo(uuid) to authenticated;
 grant execute on function public.next_split_day(text) to authenticated;
 grant execute on function public.unlock_day(date, text) to authenticated;
+grant execute on function public.set_rest_day(date, boolean) to authenticated;
 
 -- ============================================================================
 -- REALTIME
