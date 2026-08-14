@@ -33,3 +33,8 @@ export async function closeDay(date: string) {
   const supabase = createClient();
   return supabase.rpc("close_day", { p_date: date });
 }
+
+export async function unlockDay(date: string, pin: string) {
+  const supabase = createClient();
+  return supabase.rpc("unlock_day", { p_date: date, p_pin: pin });
+}

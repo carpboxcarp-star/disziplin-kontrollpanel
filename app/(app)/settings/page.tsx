@@ -3,6 +3,7 @@
 import { useDashboard } from "@/lib/context/DashboardContext";
 import { SchedulePanel } from "@/components/settings/SchedulePanel";
 import { PointsEditor } from "@/components/settings/PointsEditor";
+import { PinSettings } from "@/components/settings/PinSettings";
 import { LogoutButton } from "@/components/layout/LogoutButton";
 import { BackButton } from "@/components/ui/BackButton";
 
@@ -18,6 +19,7 @@ export default function SettingsPage() {
       <BackButton />
       <SchedulePanel userId={userId} schedule={weekdaySchedule} settings={settings} />
       <PointsEditor userId={userId} definitions={habitDefinitions} settings={settings} />
+      <PinSettings userId={userId} settings={settings} />
       <div className="flex justify-center pt-2">
         <LogoutButton />
       </div>

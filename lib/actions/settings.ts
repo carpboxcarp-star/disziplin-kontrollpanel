@@ -23,6 +23,7 @@ export async function updateSettings(
     target_sleep_hours: number;
     todo_bonus_points: number;
     gamble_savings_amount: number;
+    unlock_pin: string;
   }>,
 ) {
   const supabase = createClient();

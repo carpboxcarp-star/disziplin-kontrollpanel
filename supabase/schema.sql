@@ -36,6 +36,8 @@ create table public.daily_logs (
   locked_at timestamptz,
   streak_after integer,
   points_after integer,
+  streak_before integer,
+  points_before integer,
   created_at timestamptz not null default now(),
   unique (user_id, log_date)
 );
@@ -77,6 +79,7 @@ create table public.settings (
   todo_bonus_points integer not null default 15,
   gamble_savings_amount numeric(10, 2) not null default 45,
   last_auto_saving_date date,
+  unlock_pin text not null default '1234' check (unlock_pin ~ '^[0-9]{4}$'),
   updated_at timestamptz not null default now()
 );
 
@@ -468,8 +471,49 @@ begin
   update public.daily_logs
     set locked = true,
         locked_at = now(),
+        streak_before = v_stats.current_streak,
+        points_before = v_stats.total_points,
         streak_after = v_new_streak,
         points_after = (select total_points from public.user_stats where user_id = p_user_id)
+    where id = v_log.id;
+end;
+$$;
+
+-- Entsperrt einen abgeschlossenen Tag wieder, wenn die richtige PIN eingegeben wird — macht
+-- dabei den Streak-Effekt des Abschlusses rückgängig (Punkte bleiben unverändert, da sie
+-- direkt über die habit_entries synchron gehalten werden, nicht über diesen Snapshot).
+create or replace function public.unlock_day(p_date date, p_pin text)
+returns void
+language plpgsql
+security invoker
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_pin text;
+  v_log public.daily_logs;
+begin
+  select unlock_pin into v_pin from public.settings where user_id = v_uid;
+  if v_pin is null or v_pin <> p_pin then
+    raise exception 'invalid pin';
+  end if;
+
+  select * into v_log from public.daily_logs where user_id = v_uid and log_date = p_date;
+  if not found or not v_log.locked then
+    return;
+  end if;
+
+  update public.user_stats
+    set current_streak = coalesce(v_log.streak_before, current_streak),
+        updated_at = now()
+    where user_id = v_uid;
+
+  update public.daily_logs
+    set locked = false,
+        locked_at = null,
+        streak_after = null,
+        points_after = null,
+        streak_before = null,
+        points_before = null
     where id = v_log.id;
 end;
 $$;
@@ -798,6 +842,7 @@ grant execute on function public.close_day(date) to authenticated;
 grant execute on function public.complete_todo(uuid) to authenticated;
 grant execute on function public.reopen_todo(uuid) to authenticated;
 grant execute on function public.next_split_day(text) to authenticated;
+grant execute on function public.unlock_day(date, text) to authenticated;
 
 -- ============================================================================
 -- REALTIME

@@ -13,6 +13,7 @@ import { RecommendedBedtime } from "@/components/today/RecommendedBedtime";
 import { WeekStrip } from "@/components/today/WeekStrip";
 import { NextMilestone } from "@/components/today/NextMilestone";
 import { CloseDayButton } from "@/components/today/CloseDayButton";
+import { UnlockDialog } from "@/components/today/UnlockDialog";
 import { PanelTitle } from "@/components/ui/Panel";
 
 export default function TodayPage() {
@@ -28,6 +29,7 @@ export default function TodayPage() {
     userStats,
   } = useDashboard();
   const [date, setDate] = useState<string | null>(null);
+  const [unlockOpen, setUnlockOpen] = useState(false);
 
   useEffect(() => {
     const init = () => {
@@ -62,15 +64,24 @@ export default function TodayPage() {
       <p className="text-sm text-ink-dim">{formatDateLong(date)}</p>
 
       {locked && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3">
-          <span className="text-lg" aria-hidden>
-            🔒
-          </span>
-          <p className="text-sm text-amber">
-            Tag abgeschlossen — nur noch Ansicht, keine Änderungen mehr möglich.
-          </p>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg" aria-hidden>
+              🔒
+            </span>
+            <p className="text-sm text-amber">Tag abgeschlossen — nur noch Ansicht.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUnlockOpen(true)}
+            className="shrink-0 h-10 px-4 rounded-md border border-amber text-sm text-amber active:bg-amber/10"
+          >
+            Entsperren
+          </button>
         </div>
       )}
+
+      {unlockOpen && <UnlockDialog date={date} onClose={() => setUnlockOpen(false)} />}
 
       <div>
         <PanelTitle>Habits</PanelTitle>

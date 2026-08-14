@@ -26,6 +26,8 @@ export interface DailyLog {
   locked_at: string | null;
   streak_after: number | null;
   points_after: number | null;
+  streak_before: number | null;
+  points_before: number | null;
   created_at: string;
 }
 
@@ -63,6 +65,7 @@ export interface Settings {
   todo_bonus_points: number;
   gamble_savings_amount: number;
   last_auto_saving_date: string | null;
+  unlock_pin: string;
   updated_at: string;
 }
 
