@@ -49,16 +49,23 @@ export function HabitGrid({ definitions, entries, date, locked }: HabitGridProps
                 ? "border-amber bg-amber/10"
                 : skipped
                   ? "border-border bg-panel-raised opacity-60"
-                  : "border-border bg-panel-raised"
+                  : locked
+                    ? "border-border bg-panel-raised opacity-50"
+                    : "border-border bg-panel-raised"
             } ${flashKey === def.key ? "animate-success-flash" : ""}`}
           >
+            {locked && !done && (
+              <span className="absolute top-3 right-3 text-sm" aria-hidden title="Tag abgeschlossen">
+                🔒
+              </span>
+            )}
             <button
               type="button"
               role="switch"
               aria-checked={done}
               disabled={disabled}
               onClick={() => update(def.key, done ? "missed" : "done")}
-              className="flex-1 flex flex-col items-start text-left gap-1 disabled:cursor-default"
+              className="flex-1 flex flex-col items-start text-left gap-1 disabled:cursor-not-allowed"
             >
               <span
                 className={`h-8 w-8 rounded-full border flex items-center justify-center text-sm mb-1 ${

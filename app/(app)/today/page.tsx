@@ -61,6 +61,17 @@ export default function TodayPage() {
 
       <p className="text-sm text-ink-dim">{formatDateLong(date)}</p>
 
+      {locked && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3">
+          <span className="text-lg" aria-hidden>
+            🔒
+          </span>
+          <p className="text-sm text-amber">
+            Tag abgeschlossen — nur noch Ansicht, keine Änderungen mehr möglich.
+          </p>
+        </div>
+      )}
+
       <div>
         <PanelTitle>Habits</PanelTitle>
         <HabitGrid
