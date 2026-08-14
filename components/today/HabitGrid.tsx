@@ -15,6 +15,7 @@ interface HabitGridProps {
 export function HabitGrid({ definitions, entries, date, locked }: HabitGridProps) {
   const [pending, setPending] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [flashKey, setFlashKey] = useState<string | null>(null);
 
   async function update(key: string, status: "done" | "missed" | "skipped", note?: string) {
     setPending(key);
@@ -23,6 +24,9 @@ export function HabitGrid({ definitions, entries, date, locked }: HabitGridProps
     if (error) {
       console.error(`set_habit_status(${key}, ${status}) fehlgeschlagen:`, error);
       setErrorKey(key);
+    } else if (status === "done") {
+      setFlashKey(key);
+      setTimeout(() => setFlashKey((current) => (current === key ? null : current)), 700);
     }
     setPending(null);
   }
@@ -46,7 +50,7 @@ export function HabitGrid({ definitions, entries, date, locked }: HabitGridProps
                 : skipped
                   ? "border-border bg-panel-raised opacity-60"
                   : "border-border bg-panel-raised"
-            }`}
+            } ${flashKey === def.key ? "animate-success-flash" : ""}`}
           >
             <button
               type="button"
