@@ -22,7 +22,9 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
      (`0001_...` automatischer Gamble-Ersparnis-Abzug + automatisches Abhaken des
      Protein-Habits, `0002_...` PIN-geschützte Tagesentsperrung, `0003_...` Umbenennung
      "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion, `0004_...` manuelles Vor-/
-     Zurückschalten des Trainingstags — in einem frischen `schema.sql`-Lauf ist das alles
+     Zurückschalten des Trainingstags, `0005_...` Fix für Lösch-Buttons (Protein-Einträge,
+     To-dos, Ersparnisse, Kontostand, Meilensteine), die zwar in der Datenbank löschten,
+     aber in der UI stehen blieben — in einem frischen `schema.sql`-Lauf ist das alles
      bereits enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der

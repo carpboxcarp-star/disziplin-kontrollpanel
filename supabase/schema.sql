@@ -940,6 +940,18 @@ alter publication supabase_realtime add table
   public.balance_entries,
   public.milestones;
 
+-- REPLICA IDENTITY FULL: ohne das enthält die WAL-Zeile bei DELETE/UPDATE standardmäßig nur
+-- den Primärschlüssel, nicht user_id — der Supabase-Realtime-Filter "user_id=eq.<uid>" kann
+-- dann bei DELETE-Events nicht matchen und der Client erhält nie ein Update (die Zeile
+-- verschwindet aus der DB, bleibt aber in der UI sichtbar, ohne Fehler). Betrifft alle
+-- Tabellen, aus denen Clients Zeilen löschen können.
+alter table public.supplement_logs replica identity full;
+alter table public.todos replica identity full;
+alter table public.savings_entries replica identity full;
+alter table public.balance_entries replica identity full;
+alter table public.milestones replica identity full;
+alter table public.exercise_sets replica identity full;
+
 -- ============================================================================
 -- PG_CRON: automatischer Mitternachts-Abschluss (alle 15 Minuten geprüft, Europe/Berlin)
 -- ============================================================================

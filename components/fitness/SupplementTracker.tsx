@@ -36,11 +36,19 @@ export function SupplementTracker({
   const totalGrams = logs
     .filter((l) => l.type !== "creatine")
     .reduce((sum, l) => sum + (l.grams ?? 0), 0);
-  const creatineToday = logs.some((l) => l.type === "creatine");
+  const creatineEntry = logs.find((l) => l.type === "creatine") ?? null;
   const remaining = Math.max(0, proteinGoal - totalGrams);
 
   async function add(type: SupplementLog["type"], grams: number | null) {
     await logSupplement(userId, date, type, grams);
+  }
+
+  async function toggleCreatine() {
+    if (creatineEntry) {
+      await deleteSupplementLog(creatineEntry.id);
+    } else {
+      await add("creatine", null);
+    }
   }
 
   return (
@@ -125,13 +133,12 @@ export function SupplementTracker({
 
       <button
         type="button"
-        onClick={() => add("creatine", null)}
-        disabled={creatineToday}
-        className={`w-full min-h-[52px] rounded-md border flex items-center justify-center gap-2 text-sm ${
-          creatineToday ? "border-amber bg-amber/10 text-amber" : "border-border text-ink-dim"
+        onClick={toggleCreatine}
+        className={`w-full min-h-[52px] rounded-md border flex items-center justify-center gap-2 text-sm transition ${
+          creatineEntry ? "border-amber bg-amber/10 text-amber" : "border-border text-ink-dim"
         }`}
       >
-        {creatineToday ? "✓ Kreatin genommen" : "+1x Kreatin"}
+        {creatineEntry ? "✓ Kreatin genommen — antippen zum Rückgängigmachen" : "+1x Kreatin"}
       </button>
     </Panel>
   );
