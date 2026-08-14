@@ -17,8 +17,10 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
    `pg_cron`-Job und den festen Push/Pull/Legs-Übungsplan an.
    - Falls der `pg_cron`-Teil am Ende einen Fehler wirft ("extension not found"), Schritt 3
      nochmal prüfen und nur den `select cron.schedule(...)`-Block am Ende erneut ausführen.
-5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist.
-   Unter **Authentication → Email Templates** kann der Magic-Link-Text angepasst werden.
+5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
+   (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
+   `/login`-Seite als Umschalter zur Verfügung). Unter **Authentication → Email Templates**
+   können der Magic-Link-Text sowie die "Reset Password"-Mail angepasst werden.
 6. **Authentication → URL Configuration**:
    - *Site URL*: die spätere Vercel-URL eintragen (z.B. `https://disziplin-kontrollpanel.vercel.app`)
    - *Redirect URLs*: zusätzlich `http://localhost:3000/auth/callback` für lokale Entwicklung
