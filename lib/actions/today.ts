@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { todayStr } from "@/lib/utils/date";
 import type { HabitStatus } from "@/lib/types";
 
 export async function ensureDailyLog(date: string) {
@@ -37,4 +38,13 @@ export async function closeDay(date: string) {
 export async function unlockDay(date: string, pin: string) {
   const supabase = createClient();
   return supabase.rpc("unlock_day", { p_date: date, p_pin: pin });
+}
+
+/** Schreibt wake_time für "heute" — verwendet vom Standby-Aufwachen-Button, unabhängig
+ * davon, welcher Tag zum Zeitpunkt des Einschlafens aktuell war. */
+export async function wakeUp() {
+  const date = todayStr();
+  const { data: log, error } = await ensureDailyLog(date);
+  if (error || !log) return { error };
+  return setSleepTimestamp(log.id, "wake_time");
 }

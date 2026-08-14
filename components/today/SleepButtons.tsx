@@ -3,17 +3,20 @@
 import { useState } from "react";
 import { PanelTitle } from "@/components/ui/Panel";
 import { setSleepTimestamp } from "@/lib/actions/today";
+import { useStandby } from "@/lib/context/StandbyContext";
 import { formatTime } from "@/lib/utils/date";
 import { computeSleepDuration } from "@/lib/utils/sleep";
 import type { DailyLog } from "@/lib/types";
 
 export function SleepButtons({ dailyLog, locked }: { dailyLog: DailyLog | null; locked: boolean }) {
   const [pending, setPending] = useState<"sleep_start" | "wake_time" | null>(null);
+  const { enterStandby } = useStandby();
 
   async function handle(field: "sleep_start" | "wake_time") {
     if (!dailyLog) return;
     setPending(field);
-    await setSleepTimestamp(dailyLog.id, field);
+    const { error } = await setSleepTimestamp(dailyLog.id, field);
+    if (!error && field === "sleep_start") enterStandby();
     setPending(null);
   }
 
