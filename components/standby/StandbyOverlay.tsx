@@ -44,6 +44,10 @@ export function StandbyOverlay() {
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-10 bg-black">
+      <p className="font-display text-4xl text-neutral-700 tabular-nums">
+        {now ? formatClock(now).slice(0, 5) : "--:--"}
+      </p>
+
       <button
         type="button"
         onClick={handleWake}
