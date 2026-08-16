@@ -14,7 +14,7 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
    für den automatischen Mitternachts-Abschluss der Tage benötigt.
 4. **SQL Editor → New query**: den kompletten Inhalt von [`supabase/schema.sql`](./supabase/schema.sql)
    einfügen und ausführen (**Run**). Das legt alle Tabellen, Policies, Funktionen, den
-   `pg_cron`-Job und den festen Push/Pull/Legs-Übungsplan an.
+   `pg_cron`-Job und den festen 5-Tage-Übungsplan an.
    - Falls der `pg_cron`-Teil am Ende einen Fehler wirft ("extension not found"), Schritt 3
      nochmal prüfen und nur den `select cron.schedule(...)`-Block am Ende erneut ausführen.
    - **Bereits ein Projekt eingerichtet?** Zusätzlich einmalig alle Dateien in
@@ -23,9 +23,11 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
      Protein-Habits, `0002_...` PIN-geschützte Tagesentsperrung, `0003_...` Umbenennung
      "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion, `0004_...` manuelles Vor-/
      Zurückschalten des Trainingstags, `0005_...` Fix für Lösch-Buttons (Protein-Einträge,
-     To-dos, Ersparnisse, Kontostand, Meilensteine), die zwar in der Datenbank löschten,
-     aber in der UI stehen blieben — in einem frischen `schema.sql`-Lauf ist das alles
-     bereits enthalten).
+     To-dos, Ersparnisse, Kontostand, Meilensteine), `0006_...` korrekte Streak-Neuberechnung
+     (Voraussetzung fürs Bearbeiten vergangener Tage im Verlauf-Tab), `0007_...` neuer
+     5-Tage-Trainingsplan ohne Beine (⚠️ löscht alte Push/Pull/Legs-Satz-Historie, siehe
+     Warnung in der Datei) — in einem frischen `schema.sql`-Lauf ist das alles bereits
+     enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
    `/login`-Seite als Umschalter zur Verfügung). Unter **Authentication → Email Templates**

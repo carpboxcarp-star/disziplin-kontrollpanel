@@ -1,5 +1,5 @@
 export type HabitStatus = "done" | "skipped" | "missed";
-export type SplitDay = "push" | "pull" | "legs";
+export type SplitDay = "day1" | "day2" | "day3" | "day4" | "day5";
 export type SupplementType = "shake" | "riegel" | "custom" | "creatine";
 export type TodoStatus = "open" | "done";
 

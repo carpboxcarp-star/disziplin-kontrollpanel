@@ -9,10 +9,12 @@ export function CalendarStrip({
   dailyLogs,
   habitEntries,
   habitDefinitions,
+  onSelectDate,
 }: {
   dailyLogs: DailyLog[];
   habitEntries: HabitEntry[];
   habitDefinitions: HabitDefinition[];
+  onSelectDate: (date: string) => void;
 }) {
   const today = todayStr();
   const days = Array.from({ length: WEEKS * 7 }).map((_, i) =>
@@ -24,18 +26,24 @@ export function CalendarStrip({
 
   return (
     <Panel>
-      <PanelTitle>Letzte {WEEKS} Wochen</PanelTitle>
+      <PanelTitle>Letzte {WEEKS} Wochen — vergangene Tage antippen zum Bearbeiten</PanelTitle>
       <div className="flex gap-1 overflow-x-auto pb-2">
         {weeks.map((week, wi) => (
           <div key={wi} className="flex flex-col gap-1">
             {week.map((date) => {
               const info = computeDayStatus(date, today, dailyLogs, habitEntries, habitDefinitions);
+              const clickable = date < today;
               return (
-                <div
+                <button
                   key={date}
+                  type="button"
+                  disabled={!clickable}
+                  onClick={() => onSelectDate(date)}
                   title={`${date}${info.note ? ` — ${info.note}` : ""}`}
-                  className={`h-4 w-4 rounded-sm ${STATUS_COLOR[info.status]}`}
-                />
+                  className="p-1 -m-1 disabled:cursor-default"
+                >
+                  <span className={`block h-4 w-4 rounded-sm ${STATUS_COLOR[info.status]}`} />
+                </button>
               );
             })}
           </div>

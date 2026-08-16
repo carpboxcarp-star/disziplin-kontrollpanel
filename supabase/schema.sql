@@ -87,7 +87,7 @@ create table public.settings (
 -- globale Referenztabelle (kein user_id) — der fixe Push/Pull/Legs-Plan
 create table public.exercise_definitions (
   id uuid primary key default gen_random_uuid(),
-  split_day text not null check (split_day in ('push', 'pull', 'legs')),
+  split_day text not null check (split_day in ('day1', 'day2', 'day3', 'day4', 'day5')),
   name text not null,
   sets_target integer not null,
   reps_target text not null,
@@ -120,7 +120,7 @@ create table public.exercise_sets (
 
 create table public.split_rotation_state (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  last_completed_split text check (last_completed_split in ('push', 'pull', 'legs')),
+  last_completed_split text check (last_completed_split in ('day1', 'day2', 'day3', 'day4', 'day5')),
   last_completed_date date
 );
 
@@ -248,10 +248,12 @@ language sql
 immutable
 as $$
   select case p_split
-    when 'push' then 'pull'
-    when 'pull' then 'legs'
-    when 'legs' then 'push'
-    else 'push'
+    when 'day1' then 'day2'
+    when 'day2' then 'day3'
+    when 'day3' then 'day4'
+    when 'day4' then 'day5'
+    when 'day5' then 'day1'
+    else 'day1'
   end;
 $$;
 
@@ -261,10 +263,12 @@ language sql
 immutable
 as $$
   select case p_split
-    when 'push' then 'legs'
-    when 'pull' then 'push'
-    when 'legs' then 'pull'
-    else 'legs'
+    when 'day1' then 'day5'
+    when 'day2' then 'day1'
+    when 'day3' then 'day2'
+    when 'day4' then 'day3'
+    when 'day5' then 'day4'
+    else 'day5'
   end;
 $$;
 
@@ -279,7 +283,7 @@ as $$
 declare
   v_uid uuid := auth.uid();
 begin
-  if p_target not in ('push', 'pull', 'legs') then
+  if p_target not in ('day1', 'day2', 'day3', 'day4', 'day5') then
     raise exception 'invalid split %', p_target;
   end if;
 
@@ -463,6 +467,76 @@ $$;
 
 -- Schließt einen Tag für einen konkreten User ab (SECURITY DEFINER, nur intern nutzbar,
 -- siehe REVOKE weiter unten). Wertet Kern-Habits aus und aktualisiert die Streak.
+-- Baut die Streak-Kette ab (einschließlich) p_from_date neu auf: geht alle GESPERRTEN Tage
+-- ab p_from_date chronologisch durch und berechnet streak_before/streak_after sowie
+-- user_stats.current_streak/longest_streak neu. Wird sowohl beim normalen Tagesabschluss
+-- als auch nach dem Bearbeiten/erneuten Abschließen eines vergangenen Tages verwendet — dort
+-- ist es unerlässlich, da sich eine Änderung an einem alten Tag auf alle danach bereits
+-- abgeschlossenen Tage auswirken kann (nicht nur auf den zuletzt geschlossenen).
+create or replace function public.recompute_streak_from(p_user_id uuid, p_from_date date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_running_streak integer;
+  v_longest integer;
+  v_missing_core integer;
+  v_new_streak integer;
+begin
+  select streak_after into v_running_streak
+  from public.daily_logs
+  where user_id = p_user_id and log_date < p_from_date and locked = true
+  order by log_date desc
+  limit 1;
+  v_running_streak := coalesce(v_running_streak, 0);
+
+  select longest_streak into v_longest from public.user_stats where user_id = p_user_id;
+  v_longest := coalesce(v_longest, 0);
+
+  for r in
+    select id, log_date
+    from public.daily_logs
+    where user_id = p_user_id and log_date >= p_from_date and locked = true
+    order by log_date asc
+  loop
+    select count(*) into v_missing_core
+    from public.habit_definitions hd
+    left join public.habit_entries he on he.daily_log_id = r.id and he.habit_key = hd.key
+    where hd.user_id = p_user_id and hd.is_core = true and hd.active = true
+      and (he.status is null or he.status = 'missed');
+
+    if v_missing_core > 0 then
+      v_new_streak := 0;
+    else
+      v_new_streak := v_running_streak + 1;
+    end if;
+
+    update public.daily_logs
+      set streak_before = v_running_streak,
+          streak_after = v_new_streak,
+          points_before = null,
+          points_after = null
+      where id = r.id;
+
+    v_running_streak := v_new_streak;
+    v_longest := greatest(v_longest, v_new_streak);
+  end loop;
+
+  update public.user_stats
+    set current_streak = v_running_streak,
+        longest_streak = v_longest,
+        updated_at = now()
+    where user_id = p_user_id;
+
+  update public.milestones
+    set achieved_at = now()
+    where user_id = p_user_id and achieved_at is null and target_streak <= v_running_streak;
+end;
+$$;
+
 create or replace function public.close_day_for_user(p_user_id uuid, p_date date)
 returns void
 language plpgsql
@@ -471,63 +545,41 @@ set search_path = public
 as $$
 declare
   v_log public.daily_logs;
-  v_missing_core integer;
-  v_stats public.user_stats;
-  v_new_streak integer;
 begin
   select * into v_log from public.daily_logs where user_id = p_user_id and log_date = p_date;
   if not found or v_log.locked then
     return;
   end if;
 
-  select count(*) into v_missing_core
-  from public.habit_definitions hd
-  left join public.habit_entries he on he.daily_log_id = v_log.id and he.habit_key = hd.key
-  where hd.user_id = p_user_id and hd.is_core = true and hd.active = true
-    and (he.status is null or he.status = 'missed');
-
-  select * into v_stats from public.user_stats where user_id = p_user_id;
-
-  if v_missing_core > 0 then
-    v_new_streak := 0;
-  else
-    v_new_streak := v_stats.current_streak + 1;
-  end if;
-
-  update public.user_stats
-    set current_streak = v_new_streak,
-        longest_streak = greatest(longest_streak, v_new_streak),
-        updated_at = now()
-    where user_id = p_user_id;
-
-  update public.milestones
-    set achieved_at = now()
-    where user_id = p_user_id and achieved_at is null and target_streak <= v_new_streak;
-
   update public.daily_logs
-    set locked = true,
-        locked_at = now(),
-        streak_before = v_stats.current_streak,
-        points_before = v_stats.total_points,
-        streak_after = v_new_streak,
-        points_after = (select total_points from public.user_stats where user_id = p_user_id)
+    set locked = true, locked_at = now()
     where id = v_log.id;
+
+  perform public.recompute_streak_from(p_user_id, p_date);
 end;
 $$;
 
 -- Entsperrt einen abgeschlossenen Tag wieder, wenn die richtige PIN eingegeben wird — macht
 -- dabei den Streak-Effekt des Abschlusses rückgängig (Punkte bleiben unverändert, da sie
 -- direkt über die habit_entries synchron gehalten werden, nicht über diesen Snapshot).
+-- SECURITY DEFINER, damit sie intern recompute_streak_from() aufrufen darf (das bewusst
+-- per REVOKE vor direkten Aufrufen mit fremder user_id geschützt ist); auth.uid() bindet
+-- den Aufruf trotzdem zwingend an den eigenen, eingeloggten User.
 create or replace function public.unlock_day(p_date date, p_pin text)
 returns void
 language plpgsql
-security invoker
+security definer
+set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
   v_pin text;
   v_log public.daily_logs;
 begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
   select unlock_pin into v_pin from public.settings where user_id = v_uid;
   if v_pin is null or v_pin <> p_pin then
     raise exception 'invalid pin';
@@ -538,11 +590,6 @@ begin
     return;
   end if;
 
-  update public.user_stats
-    set current_streak = coalesce(v_log.streak_before, current_streak),
-        updated_at = now()
-    where user_id = v_uid;
-
   update public.daily_logs
     set locked = false,
         locked_at = null,
@@ -551,6 +598,10 @@ begin
         streak_before = null,
         points_before = null
     where id = v_log.id;
+
+  -- Der entsperrte Tag selbst zählt nicht mehr mit, bis er erneut abgeschlossen wird —
+  -- die Kette wird ab dem Folgetag neu aufgebaut.
+  perform public.recompute_streak_from(v_uid, p_date + 1);
 end;
 $$;
 
@@ -899,6 +950,7 @@ $$;
 -- ============================================================================
 
 revoke execute on function public.close_day_for_user(uuid, date) from public, anon, authenticated;
+revoke execute on function public.recompute_streak_from(uuid, date) from public, anon, authenticated;
 revoke execute on function public.auto_close_stale_days() from public, anon, authenticated;
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.sync_total_points() from public, anon, authenticated;
@@ -969,26 +1021,36 @@ select cron.schedule(
 );
 
 -- ============================================================================
--- SEED: fixer Push/Pull/Legs-Trainingsplan (global, nicht pro User)
+-- SEED: fixer 5-Tage-Trainingsplan ohne Beine (global, nicht pro User)
 -- ============================================================================
 
 insert into public.exercise_definitions (split_day, name, sets_target, reps_target, sort_order) values
-  ('push', 'Bankdrücken Langhantel', 4, '6-8', 1),
-  ('push', 'Schrägbankdrücken Kurzhantel', 3, '8-10', 2),
-  ('push', 'Schulterdrücken Langhantel/Maschine', 3, '8-10', 3),
-  ('push', 'Seitheben Kurzhantel', 3, '12-15', 4),
-  ('push', 'Dips oder Trizeps-Pushdown Kabel', 3, '10-12', 5),
-  ('push', 'Trizeps-Overhead-Extension', 3, '12-15', 6),
+  ('day1', 'Bankdrücken Langhantel', 4, '6-8', 1),
+  ('day1', 'Schrägbankdrücken Kurzhantel', 3, '8-10', 2),
+  ('day1', 'Dips', 3, '10-12', 3),
+  ('day1', 'Trizeps-Pushdown Kabel', 3, '10-12', 4),
+  ('day1', 'Trizeps-Overhead-Extension', 3, '12-15', 5),
 
-  ('pull', 'Klimmzüge (oder Latzug)', 4, '6-10', 1),
-  ('pull', 'Langhantelrudern', 4, '8-10', 2),
-  ('pull', 'Kabelrudern eng', 3, '10-12', 3),
-  ('pull', 'Face Pulls', 3, '15', 4),
-  ('pull', 'Bizeps-Curls Langhantel', 3, '8-12', 5),
-  ('pull', 'Hammer-Curls Kurzhantel', 3, '12-15', 6),
+  ('day2', 'Klimmzüge (oder Latzug)', 4, '6-10', 1),
+  ('day2', 'Langhantelrudern', 4, '8-10', 2),
+  ('day2', 'Kabelrudern', 3, '10-12', 3),
+  ('day2', 'Bizeps-Curl Langhantel', 3, '8-12', 4),
+  ('day2', 'Hammer-Curls', 3, '12-15', 5),
 
-  ('legs', 'Kniebeugen Langhantel', 4, '6-8', 1),
-  ('legs', 'Rumänisches Kreuzheben', 3, '8-10', 2),
-  ('legs', 'Beinpresse', 3, '10-12', 3),
-  ('legs', 'Beinbeuger Maschine', 3, '12-15', 4),
-  ('legs', 'Wadenheben', 4, '15-20', 5);
+  ('day3', 'Schulterdrücken Langhantel', 4, '6-8', 1),
+  ('day3', 'Seitheben Kurzhantel', 3, '12-15', 2),
+  ('day3', 'Frontheben', 3, '12-15', 3),
+  ('day3', 'Face Pulls', 3, '15', 4),
+  ('day3', 'Nackentraining Maschine', 3, '15', 5),
+
+  ('day4', 'Schrägbankdrücken Langhantel', 4, '6-8', 1),
+  ('day4', 'Butterfly Maschine', 3, '12-15', 2),
+  ('day4', 'Kabelcrossover', 3, '12-15', 3),
+  ('day4', 'Konzentrations-Curls', 3, '12-15', 4),
+  ('day4', 'Cable-Curls', 3, '12-15', 5),
+
+  ('day5', 'Kreuzheben', 4, '5-6', 1),
+  ('day5', 'T-Bar-Rudern', 3, '8-10', 2),
+  ('day5', 'Latziehen eng', 3, '10-12', 3),
+  ('day5', 'Trizeps-Dips', 3, '10-12', 4),
+  ('day5', 'Skull-Crushers', 3, '10-12', 5);
