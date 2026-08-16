@@ -24,9 +24,10 @@ per Login auf dem Handy — beide Geräte teilen denselben Supabase-Account und 
      "Kein Gamblen" → "Daily Check" + Rest-Day-Funktion, `0004_...` manuelles Vor-/
      Zurückschalten des Trainingstags, `0005_...` Fix für Lösch-Buttons (Protein-Einträge,
      To-dos, Ersparnisse, Kontostand, Meilensteine), `0006_...` korrekte Streak-Neuberechnung
-     (Voraussetzung fürs Bearbeiten vergangener Tage im Verlauf-Tab), `0007_...` neuer
+     (Voraussetzung fürs Bearbeiten vergangener Tage im Verlauf-Tab), `0007b_...` neuer
      5-Tage-Trainingsplan ohne Beine (⚠️ löscht alte Push/Pull/Legs-Satz-Historie, siehe
-     Warnung in der Datei) — in einem frischen `schema.sql`-Lauf ist das alles bereits
+     Warnung in der Datei — `0007_...` **überspringen**, `0007b_...` ersetzt sie komplett
+     und ist robuster gegen abweichende Constraint-Namen) — in einem frischen `schema.sql`-Lauf ist das alles bereits
      enthalten).
 5. **Authentication → Sign In / Providers → Email**: sicherstellen, dass Email-Login aktiv ist
    (deckt sowohl Magic Link als auch Email/Passwort ab — beide Login-Arten stehen auf der
