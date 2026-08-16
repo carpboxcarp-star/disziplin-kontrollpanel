@@ -17,17 +17,14 @@
 --    (alte Werte wie 'push' wären sonst ungültig).
 update public.split_rotation_state set last_completed_split = null, last_completed_date = null;
 
--- 2. Constraints auf die neuen Split-Werte umstellen.
+-- 2. Alte Constraints nur DROPPEN (noch nicht neu anlegen) — sonst validiert Postgres
+--    "add constraint" sofort gegen die zu diesem Zeitpunkt noch vorhandenen alten
+--    Push/Pull/Legs-Zeilen in exercise_definitions und schlägt fehl.
 alter table public.exercise_definitions drop constraint if exists exercise_definitions_split_day_check;
-alter table public.exercise_definitions add constraint exercise_definitions_split_day_check
-  check (split_day in ('day1', 'day2', 'day3', 'day4', 'day5'));
-
 alter table public.split_rotation_state drop constraint if exists split_rotation_state_last_completed_split_check;
-alter table public.split_rotation_state add constraint split_rotation_state_last_completed_split_check
-  check (last_completed_split in ('day1', 'day2', 'day3', 'day4', 'day5'));
 
 -- 3. Alten Plan löschen (kaskadiert zu exercise_logs/exercise_sets, siehe Warnung oben)
---    und den neuen 5-Tage-Plan einfügen.
+--    und den neuen 5-Tage-Plan einfügen — die Tabelle enthält danach nur noch gültige Werte.
 delete from public.exercise_definitions;
 
 insert into public.exercise_definitions (split_day, name, sets_target, reps_target, sort_order) values
@@ -61,7 +58,15 @@ insert into public.exercise_definitions (split_day, name, sets_target, reps_targ
   ('day5', 'Trizeps-Dips', 3, '10-12', 4),
   ('day5', 'Skull-Crushers', 3, '10-12', 5);
 
--- 4. Rotationslogik auf den 5-Tage-Zyklus umstellen.
+-- 4. Jetzt die neuen Constraints anlegen — die Tabellen enthalten nur noch gültige
+--    ('day1'..'day5' bzw. null) Werte, die Validierung passt also durch.
+alter table public.exercise_definitions add constraint exercise_definitions_split_day_check
+  check (split_day in ('day1', 'day2', 'day3', 'day4', 'day5'));
+
+alter table public.split_rotation_state add constraint split_rotation_state_last_completed_split_check
+  check (last_completed_split in ('day1', 'day2', 'day3', 'day4', 'day5'));
+
+-- 5. Rotationslogik auf den 5-Tage-Zyklus umstellen.
 create or replace function public.next_split_day(p_split text)
 returns text
 language sql
